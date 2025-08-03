@@ -48,10 +48,11 @@ function doubleValue(dataAccountPubKey: PublicKey, counterAccountPubKey: PublicK
   svm.expireBlockhash();
 }
 
-function doubleValueViaCpi(dataAccountPubKey: PublicKey, cpiAccountPubKey: PublicKey, payer: Keypair, svm: LiteSVM) {
+function doubleValueViaCpi(dataAccountPubKey: PublicKey, cpiAccountPubKey: PublicKey, counterAccountPubKey: PublicKey, payer: Keypair, svm: LiteSVM) {
   const ix2 = new TransactionInstruction({
     keys: [
-      { pubkey: dataAccountPubKey, isSigner: false, isWritable: true }
+      { pubkey: dataAccountPubKey, isSigner: false, isWritable: true },
+      { pubkey: counterAccountPubKey, isSigner: false, isWritable: false }
     ],
     programId: cpiAccountPubKey,
   })
@@ -113,10 +114,10 @@ test("cross program invoke", () => {
 
 	expect(balanceAfter).toBe(svm.minimumBalanceForRentExemption(BigInt(4)));
 
-  doubleValueViaCpi(dataAccountPubkey, counterAccountPubKey, payer, svm)
-  doubleValueViaCpi(dataAccountPubkey, counterAccountPubKey, payer, svm)
-  doubleValueViaCpi(dataAccountPubkey, counterAccountPubKey, payer, svm)
-  doubleValueViaCpi(dataAccountPubkey, counterAccountPubKey, payer, svm)
+  doubleValueViaCpi(dataAccountPubkey, cpiAccountPubKey, counterAccountPubKey, payer, svm)
+  doubleValueViaCpi(dataAccountPubkey, cpiAccountPubKey, counterAccountPubKey, payer, svm)
+  doubleValueViaCpi(dataAccountPubkey, cpiAccountPubKey, counterAccountPubKey, payer, svm)
+  doubleValueViaCpi(dataAccountPubkey, cpiAccountPubKey, counterAccountPubKey, payer, svm)
 
   const newDataAcc = svm.getAccount(dataAccountPubkey);
   console.log(newDataAcc?.data)
