@@ -10,7 +10,45 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 
-test("one transfer", () => {
+function createNewDataAccount(payer: Keypair, counterAccountPubKey: PublicKey, svm: LiteSVM) {
+  const dataAccount = new Keypair();
+  const blockhash = svm.latestBlockhash();
+  
+  const ixs = [
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: dataAccount.publicKey,
+      lamports: Number(svm.minimumBalanceForRentExemption(BigInt(4))),
+      space: 4,
+      programId: counterAccountPubKey
+    }),
+  ];
+
+  const tx = new Transaction();
+  tx.recentBlockhash = blockhash;
+  tx.add(...ixs);
+  tx.sign(payer, dataAccount);
+  svm.sendTransaction(tx);
+  return dataAccount.publicKey;
+}
+
+function doubleValue(dataAccountPubKey: PublicKey, counterAccountPubKey: PublicKey, payer: Keypair, svm: LiteSVM) {
+  const ix2 = new TransactionInstruction({
+    keys: [
+      { pubkey: dataAccountPubKey, isSigner: false, isWritable: true }
+    ],
+    programId: counterAccountPubKey,
+  })
+  const blockhash = svm.latestBlockhash();
+  const tx2 = new Transaction();
+  tx2.recentBlockhash = blockhash;
+  tx2.add(ix2);
+  tx2.sign(payer);
+  svm.sendTransaction(tx2);
+  svm.expireBlockhash();
+}
+
+test("direct invoke", () => {
 	const svm = new LiteSVM();
 
   // adding contract from binary
@@ -20,54 +58,16 @@ test("one transfer", () => {
 	const payer = new Keypair();
 	svm.airdrop(payer.publicKey, BigInt(LAMPORTS_PER_SOL));
 
-  function createNewDataAccount(payer: Keypair) {
-    const dataAccount = new Keypair();
-    const blockhash = svm.latestBlockhash();
-    
-    const ixs = [
-      SystemProgram.createAccount({
-        fromPubkey: payer.publicKey,
-        newAccountPubkey: dataAccount.publicKey,
-        lamports: Number(svm.minimumBalanceForRentExemption(BigInt(4))),
-        space: 4,
-        programId: counterAccountPubKey
-      }),
-    ];
-
-    const tx = new Transaction();
-    tx.recentBlockhash = blockhash;
-    tx.add(...ixs);
-    tx.sign(payer, dataAccount);
-    svm.sendTransaction(tx);
-    return dataAccount.publicKey;
-  }
-  const dataAccountPubkey = createNewDataAccount(payer)
+  const dataAccountPubkey = createNewDataAccount(payer, counterAccountPubKey, svm)
 
 	const balanceAfter = svm.getBalance(dataAccountPubkey);
 
 	expect(balanceAfter).toBe(svm.minimumBalanceForRentExemption(BigInt(4)));
 
-  function doubleValue(dataAccountPubKey: PublicKey, counterAccountPubKey: PublicKey, payer: Keypair) {
-    const ix2 = new TransactionInstruction({
-      keys: [
-        { pubkey: dataAccountPubKey, isSigner: false, isWritable: true }
-      ],
-      programId: counterAccountPubKey,
-    })
-    const blockhash = svm.latestBlockhash();
-    const tx2 = new Transaction();
-    tx2.recentBlockhash = blockhash;
-    tx2.add(ix2);
-    tx2.sign(payer);
-    svm.sendTransaction(tx2);
-    svm.expireBlockhash();
-  }
-
-  doubleValue(dataAccountPubkey, counterAccountPubKey, payer)
-  doubleValue(dataAccountPubkey, counterAccountPubKey, payer)
-  doubleValue(dataAccountPubkey, counterAccountPubKey, payer)
-  doubleValue(dataAccountPubkey, counterAccountPubKey, payer)
-
+  doubleValue(dataAccountPubkey, counterAccountPubKey, payer, svm)
+  doubleValue(dataAccountPubkey, counterAccountPubKey, payer, svm)
+  doubleValue(dataAccountPubkey, counterAccountPubKey, payer, svm)
+  doubleValue(dataAccountPubkey, counterAccountPubKey, payer, svm)
 
   const newDataAcc = svm.getAccount(dataAccountPubkey);
   console.log(newDataAcc?.data)
