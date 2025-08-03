@@ -48,6 +48,22 @@ function doubleValue(dataAccountPubKey: PublicKey, counterAccountPubKey: PublicK
   svm.expireBlockhash();
 }
 
+function doubleValueViaCpi(dataAccountPubKey: PublicKey, cpiAccountPubKey: PublicKey, payer: Keypair, svm: LiteSVM) {
+  const ix2 = new TransactionInstruction({
+    keys: [
+      { pubkey: dataAccountPubKey, isSigner: false, isWritable: true }
+    ],
+    programId: cpiAccountPubKey,
+  })
+  const blockhash = svm.latestBlockhash();
+  const tx2 = new Transaction();
+  tx2.recentBlockhash = blockhash;
+  tx2.add(ix2);
+  tx2.sign(payer);
+  svm.sendTransaction(tx2);
+  svm.expireBlockhash();
+}
+
 test("direct invoke", () => {
 	const svm = new LiteSVM();
 
@@ -68,6 +84,39 @@ test("direct invoke", () => {
   doubleValue(dataAccountPubkey, counterAccountPubKey, payer, svm)
   doubleValue(dataAccountPubkey, counterAccountPubKey, payer, svm)
   doubleValue(dataAccountPubkey, counterAccountPubKey, payer, svm)
+
+  const newDataAcc = svm.getAccount(dataAccountPubkey);
+  console.log(newDataAcc?.data)
+  
+  expect(newDataAcc?.data[0]).toBe(8)
+  expect(newDataAcc?.data[1]).toBe(0)
+  expect(newDataAcc?.data[2]).toBe(0)
+  expect(newDataAcc?.data[3]).toBe(0)
+});
+
+test("cross program invoke", () => {
+	const svm = new LiteSVM();
+
+  // adding contract from binary
+  const cpiAccountPubKey = PublicKey.unique();
+  svm.addProgramFromFile(cpiAccountPubKey, path.join(__dirname, "./cpi-contract.so"))
+
+  const counterAccountPubKey = PublicKey.unique();
+  svm.addProgramFromFile(counterAccountPubKey, path.join(__dirname, "./double-contract.so"))
+
+	const payer = new Keypair();
+	svm.airdrop(payer.publicKey, BigInt(LAMPORTS_PER_SOL));
+
+  const dataAccountPubkey = createNewDataAccount(payer, counterAccountPubKey, svm)
+
+	const balanceAfter = svm.getBalance(dataAccountPubkey);
+
+	expect(balanceAfter).toBe(svm.minimumBalanceForRentExemption(BigInt(4)));
+
+  doubleValueViaCpi(dataAccountPubkey, counterAccountPubKey, payer, svm)
+  doubleValueViaCpi(dataAccountPubkey, counterAccountPubKey, payer, svm)
+  doubleValueViaCpi(dataAccountPubkey, counterAccountPubKey, payer, svm)
+  doubleValueViaCpi(dataAccountPubkey, counterAccountPubKey, payer, svm)
 
   const newDataAcc = svm.getAccount(dataAccountPubkey);
   console.log(newDataAcc?.data)
